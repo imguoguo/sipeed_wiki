@@ -64,7 +64,8 @@ jobs:
           export PATH=~/.local/bin/:$PATH
           cd "$RUNNER_TEMP/new"
           start=$(date +%s)
-          QINIU_ACCESS_KEY="$QINIU_AK" QINIU_SECRET_KEY="$QINIU_SK" python3 "$GITHUB_WORKSPACE/.github/scripts/upload_qiniu.py" --bucket "$QINIU_BUCKET" ./
+          QINIU_ACCESS_KEY="$QINIU_AK" QINIU_SECRET_KEY="$QINIU_SK" python3 "$GITHUB_WORKSPACE/.github/scripts/upload_qiniu.py" --bucket "$QINIU_BUCKET" --overwritten-list "$RUNNER_TEMP/over.txt" ./
+          echo "== overwritten =="; head -20 "$RUNNER_TEMP/over.txt"; wc -l < "$RUNNER_TEMP/over.txt"
           echo "upload took $(( $(date +%s) - start ))s"
 
       - name: push pages branch
