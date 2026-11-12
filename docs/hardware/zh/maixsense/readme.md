@@ -88,3 +88,6 @@ MS-A010 拥有强大的兼容性，基于串口协议的数据传输。
 关于 MS-A010 更详细的资料获取：[点击跳转](https://wiki.sipeed.com/hardware/zh/maixsense/maixsense-a010/maixsense-a010.html)
 关于 MS-A075V 更详细的资料获取：[点击跳转](https://wiki.sipeed.com/hardware/zh/maixsense/maixsense-a075v/maixsense-a075v.html)
 关于 MS-D640 更详细的资料获取：[点击跳转](https://wiki.sipeed.com/hardware/zh/maixsense/maixsense-d640/maixsense-d640.html)
+
+
+测试标记 qiniu-upload-test
