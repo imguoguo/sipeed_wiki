@@ -17,6 +17,12 @@ on:
 
 permissions: write-all
 
+# One publish at a time, in push order: an older run finishing last (COS upload
+# can take an hour) would otherwise overwrite a newer build on COS and Qiniu.
+concurrency:
+  group: build_doc_upload
+  cancel-in-progress: false
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
