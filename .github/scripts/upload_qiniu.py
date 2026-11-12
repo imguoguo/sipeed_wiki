@@ -67,7 +67,7 @@ def stub_bytes(dirname):
 def mime_of(key):
     if key == "errno-404" or key.endswith((".html", ".htm")):
         return "text/html; charset=utf-8"
-    return mimetypes.guess_type(key)[0]  # None -> let Qiniu detect
+    return mimetypes.guess_type(key)[0]  # None -> SDK default (application/octet-stream)
 
 
 def main():
@@ -103,7 +103,7 @@ def main():
         if ret is None:
             sys.exit("cannot list bucket %s: %s" % (args.bucket, info))
         for it in ret.get("items", []):
-            have[it["key"]] = it["hash"]
+            have[it["key"]] = (it["hash"], it.get("mimeType", ""))
         if eof:
             break
         marker = ret.get("marker")
@@ -114,7 +114,13 @@ def main():
 
     with ThreadPoolExecutor(WORKERS) as ex:
         hashes = dict(zip(want, ex.map(etag, want.values())))
-    todo = sorted((k for k in want if have.get(k) != hashes[k]),
+    def stale(k):
+        if k not in have or have[k][0] != hashes[k]:
+            return True
+        mime = mime_of(k)  # also repair objects stored with a wrong Content-Type
+        return bool(mime) and have[k][1] != mime
+
+    todo = sorted((k for k in want if stale(k)),
                   key=lambda k: (k.endswith((".html", ".htm")) or k == "errno-404", k))
     print("%d files in build (+stubs), %d in bucket, %d to upload to %s"
           % (len(want), len(have), len(todo), args.bucket), flush=True)
