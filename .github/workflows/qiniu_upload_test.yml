@@ -1,0 +1,80 @@
+# TEST ONLY (fork imguoguo/sipeed_wiki): rehearse publishing wiki to a Qiniu
+# bucket instead of Tencent COS. Mirrors publish.yml's build, but
+#   - keeps its own pages branch (qiniu-test-pages), never touches gh-pages
+#   - uploads to the test bucket sipeed-wiki-test, no COS, no CDN refresh
+name: qiniu_upload_test
+
+on:
+  push:
+    branches: [ ci/qiniu-upload-test ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: qiniu-upload-test
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository == 'imguoguo/sipeed_wiki'
+    runs-on: ubuntu-latest
+    env:
+      QINIU_BUCKET: sipeed-wiki-test
+      PAGES_BRANCH: qiniu-test-pages
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: build doc
+        run: |
+          set -euo pipefail
+          pip3 install setuptools teedoc qiniu
+          export PATH=~/.local/bin/:$PATH
+          teedoc install
+          teedoc build
+          out_dir=out`python3 -c 'import json; f=open("site_config.json");config=json.load(f);print(config["site_root_url"])'`
+          git clone https://github.com/sipeed/MaixPy --depth=1 --branch=gh-pages
+          mv MaixPy/maixpy $out_dir
+          rm -rf MaixPy
+          git clone https://github.com/sipeed/MaixCDK --depth=1 --branch=gh-pages
+          mv MaixCDK/maixcdk $out_dir
+          rm -rf MaixCDK
+          echo "== Qiniu bucket emulation of COS static website =="
+          python3 .github/scripts/gen_slash_stubs.py $out_dir
+          cp $out_dir/404.html $out_dir/errno-404
+          mv $out_dir "$RUNNER_TEMP/new"
+          echo "== previous pages branch (incremental baseline) =="
+          mkdir -p "$RUNNER_TEMP/old"
+          if git fetch origin "$PAGES_BRANCH"; then
+            git worktree add "$RUNNER_TEMP/old" FETCH_HEAD --detach -f
+          else
+            echo "no $PAGES_BRANCH yet: full upload"
+          fi
+
+      - name: upload to Qiniu test bucket
+        env:
+          QINIU_AK: ${{ secrets.QINIU_ACCESS_KEY }}
+          QINIU_SK: ${{ secrets.QINIU_SECRET_KEY }}
+        run: |
+          set -euo pipefail
+          export PATH=~/.local/bin/:$PATH
+          cd "$RUNNER_TEMP/new"
+          old=""
+          if [ -f "$RUNNER_TEMP/old/index.html" ]; then old="--old $RUNNER_TEMP/old"; fi
+          start=$(date +%s)
+          teedoc-upload --progress raw --cloud qiniu --bucket "$QINIU_BUCKET" --access_key "$QINIU_AK" --secret_key "$QINIU_SK" $old ./
+          echo "upload took $(( $(date +%s) - start ))s"
+
+      - name: push pages branch
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/new"
+          git init -q
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "qiniu test build $GITHUB_SHA"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" HEAD:"$PAGES_BRANCH"
