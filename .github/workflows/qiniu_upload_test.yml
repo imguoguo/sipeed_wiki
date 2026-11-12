@@ -69,7 +69,9 @@ jobs:
           test -f "$RUNNER_TEMP/old/index.html"
           old="--old $RUNNER_TEMP/old"
           start=$(date +%s)
-          teedoc-upload --progress raw --cloud qiniu --bucket "$QINIU_BUCKET" --access_key "$QINIU_AK" --secret_key "$QINIU_SK" $old ./
+          # FULL=1 in the commit message forces a full upload (timing test)
+          if git -C "$GITHUB_WORKSPACE" log -1 --format=%B | grep -q 'FULL=1'; then old=""; fi
+          QINIU_ACCESS_KEY="$QINIU_AK" QINIU_SECRET_KEY="$QINIU_SK" python3 "$GITHUB_WORKSPACE/.github/scripts/upload_qiniu.py" --bucket "$QINIU_BUCKET" $old ./
           echo "upload took $(( $(date +%s) - start ))s"
 
       - name: push pages branch
