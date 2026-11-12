@@ -48,11 +48,15 @@ jobs:
           mv $out_dir "$RUNNER_TEMP/new"
           echo "== previous pages branch (incremental baseline) =="
           mkdir -p "$RUNNER_TEMP/old"
-          if git fetch origin "$PAGES_BRANCH"; then
-            git worktree add "$RUNNER_TEMP/old" FETCH_HEAD --detach -f
+          # same baseline as production: the last published gh-pages
+          # (falls back to upstream's on the first run, like publish.yml's --old)
+          if git fetch --depth=1 origin "$PAGES_BRANCH"; then
+            echo "baseline: origin/$PAGES_BRANCH"
           else
-            echo "no $PAGES_BRANCH yet: full upload"
+            git fetch --depth=1 https://github.com/sipeed/sipeed_wiki gh-pages
+            echo "baseline: upstream gh-pages"
           fi
+          git worktree add "$RUNNER_TEMP/old" FETCH_HEAD --detach -f
 
       - name: upload to Qiniu test bucket
         env:
@@ -62,8 +66,8 @@ jobs:
           set -euo pipefail
           export PATH=~/.local/bin/:$PATH
           cd "$RUNNER_TEMP/new"
-          old=""
-          if [ -f "$RUNNER_TEMP/old/index.html" ]; then old="--old $RUNNER_TEMP/old"; fi
+          test -f "$RUNNER_TEMP/old/index.html"
+          old="--old $RUNNER_TEMP/old"
           start=$(date +%s)
           teedoc-upload --progress raw --cloud qiniu --bucket "$QINIU_BUCKET" --access_key "$QINIU_AK" --secret_key "$QINIU_SK" $old ./
           echo "upload took $(( $(date +%s) - start ))s"
