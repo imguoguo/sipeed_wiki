@@ -31,7 +31,7 @@ jobs:
       - name: build doc
         run: |
           set -euo pipefail
-          pip3 install setuptools teedoc qiniu
+          pip3 install setuptools teedoc qiniu==7.18.0
           export PATH=~/.local/bin/:$PATH
           teedoc install
           teedoc build
@@ -42,9 +42,6 @@ jobs:
           git clone https://github.com/sipeed/MaixCDK --depth=1 --branch=gh-pages
           mv MaixCDK/maixcdk $out_dir
           rm -rf MaixCDK
-          echo "== Qiniu bucket emulation of COS static website =="
-          python3 .github/scripts/gen_slash_stubs.py $out_dir
-          cp $out_dir/404.html $out_dir/errno-404
           mv $out_dir "$RUNNER_TEMP/new"
           echo "== previous pages branch (incremental baseline) =="
           mkdir -p "$RUNNER_TEMP/old"
@@ -66,12 +63,8 @@ jobs:
           set -euo pipefail
           export PATH=~/.local/bin/:$PATH
           cd "$RUNNER_TEMP/new"
-          test -f "$RUNNER_TEMP/old/index.html"
-          old="--old $RUNNER_TEMP/old"
           start=$(date +%s)
-          # FULL=1 in the commit message forces a full upload (timing test)
-          if git -C "$GITHUB_WORKSPACE" log -1 --format=%B | grep -q 'FULL=1'; then old=""; fi
-          QINIU_ACCESS_KEY="$QINIU_AK" QINIU_SECRET_KEY="$QINIU_SK" python3 "$GITHUB_WORKSPACE/.github/scripts/upload_qiniu.py" --bucket "$QINIU_BUCKET" $old ./
+          QINIU_ACCESS_KEY="$QINIU_AK" QINIU_SECRET_KEY="$QINIU_SK" python3 "$GITHUB_WORKSPACE/.github/scripts/upload_qiniu.py" --bucket "$QINIU_BUCKET" ./
           echo "upload took $(( $(date +%s) - start ))s"
 
       - name: push pages branch
